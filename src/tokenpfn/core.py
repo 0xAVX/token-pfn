@@ -68,8 +68,12 @@ def evidence_matrix(encs_tr, y_tr, encs_te, alpha=1.0):
             neg[t] += c == 0
     ev, lf = {}, {}
     n_all = sum(tot.values())
+    n_pos = sum(pos.values())
+    n_neg = sum(neg.values())
+    V = len(tot)
     for t, n in tot.items():
-        ev[t] = np.log((pos[t] + alpha) / (neg[t] + alpha))
+        ev[t] = np.log((pos[t] + alpha) / (n_pos + alpha * V)) \
+            - np.log((neg[t] + alpha) / (n_neg + alpha * V))
         lf[t] = -np.log(n / n_all)
     return np.array([_cell_stats(e.ids, ev, lf, len(ev) + 1000) for e in encs_te],
                     dtype=np.float32)

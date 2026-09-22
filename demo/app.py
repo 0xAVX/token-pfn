@@ -27,7 +27,9 @@ for c in ["Division Name", "Department Name", "Class Name"]:
 keep = np.random.RandomState(0).choice(len(Xs), 8000, replace=False)
 tok = get_tokenizer()
 _, _, enc_tr = design_matrix(Xtr, TEXT, tok)
-ev_all, lf_all = {}, {}
+from tokenpfn.core import evidence_matrix, EV_COLS
+import tokenpfn.core as T
+# per-column evidence dicts with class-prior normalization (same as experiments)
 from collections import Counter
 pos, neg, tot = Counter(), Counter(), Counter()
 for col in TEXT:
@@ -36,9 +38,19 @@ for col in TEXT:
             tot[t] += 1
             pos[t] += c == 1
             neg[t] += c == 0
-EV = {t: float(np.log((pos[t] + 1) / (neg[t] + 1))) for t in tot}
+n_pos, n_neg, V = sum(pos.values()), sum(neg.values()), len(tot)
+EV = {t: float(np.log((pos[t] + 1) / (n_pos + V)) - np.log((neg[t] + 1) / (n_neg + V)))
+      for t in tot}
+# combined model: STRUCT + evidence columns (same pipeline as experiment E)
+evT = T.evidence_matrix(enc_tr["Title"], ytr, enc_tr["Title"])
+evB = evidence_matrix(enc_tr["Review Text"], ytr, enc_tr["Review Text"])
+EVF = pd.DataFrame(np.hstack([evT, evB]),
+                   columns=[f"Title_{c}" for c in T.EV_COLS] +
+                           [f"Review Text_{c}" for c in T.EV_COLS], index=Xtr.index)
+XA = pd.concat([Xs, EVF], axis=1)
 m = TabPFNClassifier(random_state=0)
-m.fit(Xs.iloc[keep], ytr[keep])
+m.fit(XA.iloc[keep], ytr[keep])
+EVCOLS = EVF.columns.tolist()
 SAMPLES = Xte.iloc[np.random.RandomState(1).choice(len(Xte), 12,
                                                    replace=False)].index.tolist()
 print("ready.", flush=True)
@@ -48,7 +60,7 @@ PAGE = """
 <h1>PFN Lexicon — what did TabPFN read?</h1>
 <form method=get>Case: <select name=i>{% for k in ids %}<option {{'selected' if k==i}}>{{k}}</option>{% endfor %}</select>
 <input type=submit value="Show"></form>
-<h2>Would recommend? {{'%.0f' % (100*p)}}%</h2>
+<h2>Would recommend? {{'%.0f' % (100*p)}}% (structured + token evidence)</h2>
 <p>{{hl|safe}}</p>
 <p><small>green = positive evidence, red = negative (per-token log-odds)</small></p>
 """
@@ -73,7 +85,14 @@ def index():
     q = row[STRUCT].to_frame().T.copy()
     for c in ["Division Name", "Department Name", "Class Name"]:
         q[c] = q[c].astype("category")
-    p = float(m.predict_proba(q)[:, 1][0])
+    # query evidence row from the same train-built statistics the model uses
+    enc_q = {c: [tok.encode(row[c] if isinstance(row[c], str) else "")]
+             for c in TEXT}
+    import numpy as np
+    evq = np.hstack([evidence_matrix(enc_tr[c], ytr, enc_q[c]) for c in TEXT])
+    qe = pd.concat([q.reset_index(drop=True),
+                    pd.DataFrame(evq, columns=EVCOLS)], axis=1)
+    p = float(m.predict_proba(qe)[:, 1][0])
     hl = "<br><br>".join(highlight(row[c], EV) for c in TEXT)
     return render_template_string(PAGE, ids=SAMPLES, i=i, p=p, hl=hl)
 

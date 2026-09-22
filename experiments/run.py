@@ -4,6 +4,7 @@ A structured-only | B TRANSFORM_TEXT | C sketch | D evidence | E sketch+evidence
 """
 from __future__ import annotations
 
+import sys
 import time
 from pathlib import Path
 
@@ -14,7 +15,7 @@ from sklearn.model_selection import train_test_split
 
 from tokenpfn.core import design_matrix, evidence_cv, evidence_matrix, get_tokenizer
 
-SEED = 0
+SEED = int(sys.argv[1]) if len(sys.argv) > 1 else 0
 TEXT = ["Title", "Review Text"]
 STRUCT = ["Age", "Rating", "Positive Feedback Count", "Division Name",
           "Department Name", "Class Name"]
@@ -84,7 +85,7 @@ def main():
     rows.append(("E sketch+evidence", run(Xa, Xb)))
     print(f"E: {rows[-1][1]:.4f}", flush=True)
 
-    pd.DataFrame(rows, columns=["setup", "auc"]).to_csv("figs/tokenpfn.csv",
+    pd.DataFrame(rows, columns=["setup", "auc"]).to_csv(f"figs/tokenpfn_s{SEED}.csv",
                                                          index=False)
     print(f"saved figs/tokenpfn.csv ({(time.time()-t0)/60:.1f} min)", flush=True)
 

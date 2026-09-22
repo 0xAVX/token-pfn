@@ -9,22 +9,29 @@ aggregates) → TabPFN-3.5 reasons jointly over structured + lexical features.
 TabPFN answers *how lexical evidence interacts with structured context*;
 the tokenizer answers *what lexical evidence is in the cell*.
 
-## Results (Women's Clothing Reviews, Recommended IND, `figs/tokenpfn.csv`)
+## Results (Women's Clothing Reviews, Recommended IND)
 
-| setup | AUC |
-|---|---|
-| A structured-only | 0.9721 |
-| B native TRANSFORM_TEXT (char n-gram→SVD) | 0.9793 |
-| C sketch | 0.9774 |
-| D evidence | **0.9816** |
-| E sketch+evidence | **0.9817** |
+Token evidence uses class-prior-normalized log-odds (not raw counts, so the
+82%-positive base rate can't leak into scores). 3 seeds:
 
-Evidence beats the built-in text path; sketch alone doesn't. Note on
-Tokenizers v1: v1 preserves token IDs by design, so it changes speed, not
-model inputs — our contribution is the modeling (venv ships tokenizers 0.23;
-v1 is a drop-in speedup when stable).
+| setup | s0 | s1 | s2 | mean |
+|---|---|---|---|---|
+| A structured-only | 0.9721 | 0.9741 | 0.9734 | 0.9732 |
+| B native TRANSFORM_TEXT | 0.9793 | 0.9835 | 0.9828 | 0.9819 |
+| C sketch | 0.9774 | 0.9805 | 0.9806 | 0.9795 |
+| D evidence | 0.9815 | 0.9849 | 0.9841 | **0.9835** |
+| E sketch+evidence | 0.9815 | 0.9847 | 0.9847 | **0.9836** |
+
+Evidence beats the built-in text path on every seed (+0.0016 mean); sketch
+alone doesn't. Small but consistent — the demo leans on inspectability, not
+just the gap. Note on Tokenizers v1: v1 preserves token IDs by design, so it
+changes speed, not model inputs — our contribution is the modeling (venv
+ships tokenizers 0.23; v1 is a drop-in speedup when stable).
 
 ## Reproduce
+
+Fresh-env verified 2026-09-22 (clean venv, `pip install -e .`, TokenPFN suite
+1 passed in 2s; bert tokenizer from public HF; TabPFN weights public, no keys).
 
 ```bash
 # data: kaggle datasets download -d nicapotato/womens-ecommerce-clothing-reviews -p data --unzip

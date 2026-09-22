@@ -1,0 +1,7 @@
+tabpfn==9.0.0
+tokenizers
+pandas
+numpy
+scikit-learn
+torch
+flask

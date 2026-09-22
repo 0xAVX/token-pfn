@@ -1,0 +1,19 @@
+[project]
+name = "token-pfn"
+version = "0.1.0"
+description = "TokenPFN: subword token evidence + sketch for TabPFN-3.5, no LLM"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+dependencies = [
+    "tabpfn==9.0.0",
+    "tokenizers",
+    "pandas",
+    "numpy",
+    "scikit-learn",
+    "torch",
+    "flask",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

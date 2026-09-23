@@ -61,14 +61,19 @@ def main():
     sk_te, _, encs_te = design_matrix(Xte, TEXT, tok)
     import tokenpfn.core as T
     cols9 = T.EV_COLS
-    evT_tr = evidence_cv(encs_tr["Title"], ytr)
-    evB_tr = evidence_cv(encs_tr["Review Text"], ytr)
-    evT_te = evidence_matrix(encs_tr["Title"], ytr, encs_te["Title"])
-    evB_te = evidence_matrix(encs_tr["Review Text"], ytr, encs_te["Review Text"])
+    # fairness: evidence sees exactly the 12k ctx labels TabPFN trains on
+    keep12 = np.random.RandomState(SEED).choice(len(Xtr), min(12000, len(Xtr)),
+                                                replace=False)
+    encK = {c: [encs_tr[c][i] for i in keep12] for c in TEXT}
+    yK = ytr[keep12]
+    evT_tr = evidence_cv(encK["Title"], yK)
+    evB_tr = evidence_cv(encK["Review Text"], yK)
+    evT_te = evidence_matrix(encK["Title"], yK, encs_te["Title"])
+    evB_te = evidence_matrix(encK["Review Text"], yK, encs_te["Review Text"])
     ev_tr_df = pd.DataFrame(np.hstack([evT_tr, evB_tr]),
                             columns=[f"Title_{c}" for c in cols9] +
                                     [f"Review Text_{c}" for c in cols9],
-                            index=Xtr.index)
+                            index=Xtr.iloc[keep12].index)
     ev_te_df = pd.DataFrame(np.hstack([evT_te, evB_te]),
                             columns=ev_tr_df.columns, index=Xte.index)
     sk_tr.index, sk_te.index = Xtr.index, Xte.index

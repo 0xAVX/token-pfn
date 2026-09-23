@@ -26,7 +26,7 @@ for e, c in zip(enc_tr["Review Text"], ytr):
 n_pos, n_neg, V = sum(pos.values()), sum(neg.values()), len(tot)
 EV = {t: float(np.log((pos[t] + 1) / (n_pos + V)) - np.log((neg[t] + 1) / (n_neg + V)))
       for t in tot}
-row = Xte.iloc[3]
+row = Xte[Xte["Review Text"].str.len() > 120].iloc[0]
 text = row["Review Text"] if isinstance(row["Review Text"], str) else ""
 enc = tok.encode(text)
 words = [text[s:e] or " " for _, (s, e) in zip(enc.ids, enc.offsets)]
@@ -46,13 +46,20 @@ bars = ax.barh(range(len(words)), [0] * len(words),
                color=["#27ae60" if v > 0 else "#c0392b" for v in vals])
 
 
-def draw(f):
+from PIL import Image
+
+import io
+
+frames = []
+for f in range(10):
     n = (f + 1) / 10
     for i, v in enumerate(vals):
         bars[i].set_width(v * n)
-    return bars
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=100)
+    buf.seek(0)
+    frames.append(Image.open(buf).convert("P", palette=Image.ADAPTIVE))
 
-
-FuncAnimation(fig, draw, frames=10, interval=350).save(
-    "figs/lexicon.gif", writer="pillow", dpi=100)
+frames[0].save("figs/lexicon.gif", save_all=True, append_images=frames[1:],
+               duration=350, loop=0)
 print("saved figs/lexicon.gif")

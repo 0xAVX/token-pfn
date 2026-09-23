@@ -30,8 +30,9 @@ tok = get_tokenizer()
 _, _, enc_tr = design_matrix(Xtr, TEXT, tok)
 from tokenpfn.core import evidence_cv, evidence_matrix, EV_COLS
 import tokenpfn.core as T
-# honest pipeline (mirrors experiment E): cross-fit evidence + fit on the
-# SAME 12k rows TabPFN trains on; highlights use identical statistics
+# honest pipeline (mirrors experiment D): cross-fit evidence + fit on the
+# SAME 12k rows TabPFN trains on; each field is highlighted with its own
+# column's log-odds — the exact values behind that column's evidence features
 encK = {c: [enc_tr[c][i] for i in keep] for c in TEXT}
 yK = ytr[keep]
 evT = T.evidence_cv(encK["Title"], yK)
@@ -41,16 +42,17 @@ EVF = pd.DataFrame(np.hstack([evT, evB]),
                            [f"Review Text_{c}" for c in T.EV_COLS],
                    index=Xtr.iloc[keep].index)
 from collections import Counter
-pos, neg, tot = Counter(), Counter(), Counter()
+EV = {}
 for col in TEXT:
+    pos, neg, tot = Counter(), Counter(), Counter()
     for e, c in zip(encK[col], yK):
         for t in set(e.ids):
             tot[t] += 1
             pos[t] += c == 1
             neg[t] += c == 0
-n_pos, n_neg, V = sum(pos.values()), sum(neg.values()), len(tot)
-EV = {t: float(np.log((pos[t] + 1) / (n_pos + V)) - np.log((neg[t] + 1) / (n_neg + V)))
-      for t in tot}
+    n_pos, n_neg, V = sum(pos.values()), sum(neg.values()), len(tot)
+    EV[col] = {t: float(np.log((pos[t] + 1) / (n_pos + V))
+                        - np.log((neg[t] + 1) / (n_neg + V))) for t in tot}
 XA = pd.concat([Xs.iloc[keep], EVF], axis=1)
 m = TabPFNClassifier(random_state=0)
 m.fit(XA, yK)
@@ -66,7 +68,9 @@ PAGE = """
 <input type=submit value="Show"></form>
 <h2>Would recommend? {{'%.0f' % (100*p)}}% (structured + token evidence)</h2>
 <p>{{hl|safe}}</p>
-<p><small>green = positive evidence, red = negative (per-token log-odds)</small></p>
+<p><small>green = positive evidence, red = negative — each field's per-token
+log-odds from that column's 12k training labels (the values behind its
+evidence features)</small></p>
 """
 
 
@@ -97,7 +101,7 @@ def index():
     qe = pd.concat([q.reset_index(drop=True),
                     pd.DataFrame(evq, columns=EVCOLS)], axis=1)
     p = float(m.predict_proba(qe)[:, 1][0])
-    hl = "<br><br>".join(highlight(row[c], EV) for c in TEXT)
+    hl = "<br><br>".join(highlight(row[c], EV[c]) for c in TEXT)
     return render_template_string(PAGE, ids=SAMPLES, i=i, p=p, hl=hl)
 
 

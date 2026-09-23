@@ -9,6 +9,8 @@ aggregates) → TabPFN-3.5 reasons jointly over structured + lexical features.
 TabPFN answers *how lexical evidence interacts with structured context*;
 the tokenizer answers *what lexical evidence is in the cell*.
 
+![token evidence](figs/lexicon.gif)
+
 ## Results (Women's Clothing Reviews, Recommended IND)
 
 Token evidence uses class-prior-normalized log-odds (not raw counts, so the

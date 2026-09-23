@@ -24,16 +24,26 @@ Xtr, Xte, ytr, yte = train_test_split(df, y, test_size=0.25, stratify=y, random_
 Xs = Xtr[STRUCT].copy()
 for c in ["Division Name", "Department Name", "Class Name"]:
     Xs[c] = Xs[c].astype("category")
-keep = np.random.RandomState(0).choice(len(Xs), 8000, replace=False)
+keep = np.random.RandomState(0).choice(len(Xs), min(12000, len(Xs)),
+                                             replace=False)
 tok = get_tokenizer()
 _, _, enc_tr = design_matrix(Xtr, TEXT, tok)
-from tokenpfn.core import evidence_matrix, EV_COLS
+from tokenpfn.core import evidence_cv, evidence_matrix, EV_COLS
 import tokenpfn.core as T
-# per-column evidence dicts with class-prior normalization (same as experiments)
+# honest pipeline (mirrors experiment E): cross-fit evidence + fit on the
+# SAME 12k rows TabPFN trains on; highlights use identical statistics
+encK = {c: [enc_tr[c][i] for i in keep] for c in TEXT}
+yK = ytr[keep]
+evT = T.evidence_cv(encK["Title"], yK)
+evB = T.evidence_cv(encK["Review Text"], yK)
+EVF = pd.DataFrame(np.hstack([evT, evB]),
+                   columns=[f"Title_{c}" for c in T.EV_COLS] +
+                           [f"Review Text_{c}" for c in T.EV_COLS],
+                   index=Xtr.iloc[keep].index)
 from collections import Counter
 pos, neg, tot = Counter(), Counter(), Counter()
 for col in TEXT:
-    for e, c in zip(enc_tr[col], ytr):
+    for e, c in zip(encK[col], yK):
         for t in set(e.ids):
             tot[t] += 1
             pos[t] += c == 1
@@ -41,15 +51,9 @@ for col in TEXT:
 n_pos, n_neg, V = sum(pos.values()), sum(neg.values()), len(tot)
 EV = {t: float(np.log((pos[t] + 1) / (n_pos + V)) - np.log((neg[t] + 1) / (n_neg + V)))
       for t in tot}
-# combined model: STRUCT + evidence columns (same pipeline as experiment E)
-evT = T.evidence_matrix(enc_tr["Title"], ytr, enc_tr["Title"])
-evB = evidence_matrix(enc_tr["Review Text"], ytr, enc_tr["Review Text"])
-EVF = pd.DataFrame(np.hstack([evT, evB]),
-                   columns=[f"Title_{c}" for c in T.EV_COLS] +
-                           [f"Review Text_{c}" for c in T.EV_COLS], index=Xtr.index)
-XA = pd.concat([Xs, EVF], axis=1)
+XA = pd.concat([Xs.iloc[keep], EVF], axis=1)
 m = TabPFNClassifier(random_state=0)
-m.fit(XA.iloc[keep], ytr[keep])
+m.fit(XA, yK)
 EVCOLS = EVF.columns.tolist()
 SAMPLES = Xte.iloc[np.random.RandomState(1).choice(len(Xte), 12,
                                                    replace=False)].index.tolist()
@@ -89,7 +93,7 @@ def index():
     enc_q = {c: [tok.encode(row[c] if isinstance(row[c], str) else "")]
              for c in TEXT}
     import numpy as np
-    evq = np.hstack([evidence_matrix(enc_tr[c], ytr, enc_q[c]) for c in TEXT])
+    evq = np.hstack([evidence_matrix(encK[c], yK, enc_q[c]) for c in TEXT])
     qe = pd.concat([q.reset_index(drop=True),
                     pd.DataFrame(evq, columns=EVCOLS)], axis=1)
     p = float(m.predict_proba(qe)[:, 1][0])

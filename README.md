@@ -37,6 +37,8 @@ Fresh-env verified 2026-09-22 (clean venv, `pip install -e .`, TokenPFN suite
 ```bash
 # data: kaggle datasets download -d nicapotato/womens-ecommerce-clothing-reviews -p data --unzip
 <venv-python> -m pytest tests/ -q
-<venv-python> experiments/run.py   # figs/tokenpfn.csv
+<venv-python> experiments/run.py 0   # figs/tokenpfn_s0.csv (seeds 0/1/2)
+<venv-python> experiments/run.py 1
+<venv-python> experiments/run.py 2
 <venv-python> demo/app.py          # lexicon view (port 5005)
 ```
